@@ -9,17 +9,15 @@ import {
   useMap,
 } from "react-leaflet";
 
-// Rough center of Arizona
-const DEFAULT_CENTER = [34.0489, -111.0937];
+const DEFAULT_CENTER = [34.0489, -111.0937]; // Arizona center
 const DEFAULT_ZOOM = 6;
 
-// This component listens for changes to "position" and moves the map there
+// Auto-center the map when we have a user position
 function AutoCenter({ position }) {
   const map = useMap();
 
   useEffect(() => {
     if (position) {
-      // Smooth fly animation to the user's location
       map.flyTo(position, 14, { duration: 1.5 });
     }
   }, [position, map]);
@@ -32,14 +30,15 @@ export default function HomePage() {
   const [geoError, setGeoError] = useState(null);
   const [isClient, setIsClient] = useState(false);
 
-  // Make sure this only runs in the browser (not during SSR)
+  // Only render map on client
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   const getLocation = () => {
-    if (!navigator.geolocation) {
-      setGeoError("Geolocation is not supported in this browser.");
+    // Guard against SSR: check typeof window
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setGeoError("Geolocation is not available in this environment.");
       return;
     }
 
@@ -55,29 +54,28 @@ export default function HomePage() {
     );
   };
 
-  // Try to get location on first load
+  // Try once on mount
   useEffect(() => {
     getLocation();
   }, []);
 
   if (!isClient) {
-    // Avoid rendering map on the server
+    // Avoid any window / navigator usage during SSR
     return null;
   }
 
   return (
     <main className="h-screen w-screen flex flex-col bg-gray-100">
-      {/* Top Nav Bar */}
+      {/* Top nav */}
       <header className="w-full bg-white shadow-sm px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">
-            Find My Location
+            Map Me – Locator
           </h1>
           <p className="text-sm text-gray-500">
-            View a map of wherever you are located and see where you are.
+            Shows where you are on the map.
           </p>
         </div>
-
         <button
           onClick={getLocation}
           className="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 transition text-sm"
@@ -86,24 +84,21 @@ export default function HomePage() {
         </button>
       </header>
 
-      {/* Map area */}
+      {/* Map */}
       <div className="flex-1 relative">
         <MapContainer
-          center={DEFAULT_CENTER}
-          zoom={DEFAULT_ZOOM}
+          center={currentPosition || DEFAULT_CENTER}
+          zoom={currentPosition ? 14 : DEFAULT_ZOOM}
           scrollWheelZoom={true}
           className="h-full w-full z-0"
         >
-          {/* Base map tiles */}
           <TileLayer
             attribution='&copy; OpenStreetMap contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Auto-center to user when we have a position */}
           {currentPosition && <AutoCenter position={currentPosition} />}
 
-          {/* User marker */}
           {currentPosition && (
             <CircleMarker
               center={currentPosition}
@@ -119,7 +114,6 @@ export default function HomePage() {
           )}
         </MapContainer>
 
-        {/* Error toast */}
         {geoError && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white px-4 py-2 rounded-lg shadow-md text-sm text-gray-800 z-[999]">
             Location error: {geoError}
